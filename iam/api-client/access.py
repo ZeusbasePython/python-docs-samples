@@ -27,18 +27,16 @@ from google.oauth2 import service_account
 import googleapiclient.discovery
 
 
-credentials = service_account.Credentials.from_service_account_file(
-    filename=os.environ['GOOGLE_APPLICATION_CREDENTIALS'],
-    scopes=['https://www.googleapis.com/auth/cloud-platform'])
-service = googleapiclient.discovery.build(
-    'cloudresourcemanager', 'v1', credentials=credentials)
-
-
 # [START iam_get_policy]
 def get_policy(project_id):
     """Gets IAM policy for a project."""
 
     # pylint: disable=no-member
+    credentials = service_account.Credentials.from_service_account_file(
+        filename=os.environ['GOOGLE_APPLICATION_CREDENTIALS'],
+        scopes=['https://www.googleapis.com/auth/cloud-platform'])
+    service = googleapiclient.discovery.build(
+        'cloudresourcemanager', 'v1', credentials=credentials)
     policy = service.projects().getIamPolicy(
         resource=project_id, body={}).execute()
     print(policy)
@@ -49,6 +47,7 @@ def get_policy(project_id):
 # [START iam_modify_policy_add_member]
 def modify_policy_add_member(policy, role, member):
     """Adds a new member to a role binding."""
+
     binding = next(b for b in policy['bindings'] if b['role'] == role)
     binding['members'].append(member)
     print(binding)
@@ -59,6 +58,7 @@ def modify_policy_add_member(policy, role, member):
 # [START iam_modify_policy_add_role]
 def modify_policy_add_role(policy, role, member):
     """Adds a new role binding to a policy."""
+
     binding = {
         'role': role,
         'members': [member]
@@ -69,11 +69,28 @@ def modify_policy_add_role(policy, role, member):
 # [END iam_modify_policy_add_role]
 
 
+# [START iam_modify_policy_remove_member]
+def modify_policy_remove_member(policy, role, member):
+    """Removes a  member from a role binding."""
+    binding = next(b for b in policy['bindings'] if b['role'] == role)
+    if 'members' in binding and member in binding['members']:
+        binding['members'].remove(member)
+    print(binding)
+    return policy
+# [END iam_modify_policy_remove_member]
+
+
 # [START iam_set_policy]
 def set_policy(project_id, policy):
     """Sets IAM policy for a project."""
 
     # pylint: disable=no-member
+    credentials = service_account.Credentials.from_service_account_file(
+        filename=os.environ['GOOGLE_APPLICATION_CREDENTIALS'],
+        scopes=['https://www.googleapis.com/auth/cloud-platform'])
+    service = googleapiclient.discovery.build(
+        'cloudresourcemanager', 'v1', credentials=credentials)
+
     policy = service.projects().setIamPolicy(
         resource=project_id, body={
             'policy': policy
@@ -110,6 +127,13 @@ def main():
     modify_role_parser.add_argument('role')
     modify_role_parser.add_argument('member')
 
+    # Modify: remove member
+    modify_member_parser = subparsers.add_parser(
+        'modify_member', help=get_policy.__doc__)
+    modify_member_parser.add_argument('project_id')
+    modify_member_parser.add_argument('role')
+    modify_member_parser.add_argument('member')
+
     # Set
     set_parser = subparsers.add_parser(
         'set', help=set_policy.__doc__)
@@ -124,6 +148,8 @@ def main():
         set_policy(args.project_id, args.policy)
     elif args.command == 'add_member':
         modify_policy_add_member(args.policy, args.role, args.member)
+    elif args.command == 'remove_member':
+        modify_policy_remove_member(args.policy, args.role, args.member)
     elif args.command == 'add_binding':
         modify_policy_add_role(args.policy, args.role, args.member)
 
